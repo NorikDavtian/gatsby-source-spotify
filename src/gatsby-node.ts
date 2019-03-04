@@ -3,6 +3,7 @@ import { createRemoteFileNode } from 'gatsby-source-filesystem';
 import { generateArtistString } from './artist-list';
 import {
   PlaylistNode,
+  PlaylistTrackNode,
   RecentTrackNode,
   TopArtistNode,
   TopTrackNode,
@@ -19,6 +20,7 @@ export interface PluginOptions {
   timeRanges?: TimeRange[];
   fetchPlaylists?: boolean;
   fetchRecent?: boolean;
+  playlistId?: string;
 }
 
 const referenceRemoteFile = async (
@@ -56,9 +58,13 @@ export const sourceNodes = async (
   const { createNode, touchNode } = actions;
   const helpers = { cache, createNode, createNodeId, store, touchNode };
 
-  const { tracks, artists, playlists, recentTracks } = await getUserData(
-    pluginOptions,
-  );
+  const {
+    tracks,
+    artists,
+    playlists,
+    playlistTracks,
+    recentTracks,
+  } = await getUserData(pluginOptions);
 
   await Promise.all([
     ...tracks.map(async (track, index) => {
@@ -97,6 +103,29 @@ export const sourceNodes = async (
             playlist.images && playlist.images.length
               ? await referenceRemoteFile(playlist.images[0].url, helpers)
               : null,
+        }),
+      );
+    }),
+    ...playlistTracks.map(async (playlistTrack, index) => {
+      createNode(
+        PlaylistTrackNode({
+          ...playlistTrack,
+          // possible for the same track to be in the playlist multiple times
+          id: String(playlistTrack.track.id + playlistTrack.added_at),
+          order: index,
+          track: {
+            ...playlistTrack.track,
+            artistString: generateArtistString(playlistTrack.track.artists),
+            image:
+              playlistTrack.track.album &&
+              playlistTrack.track.album.images &&
+              playlistTrack.track.album.images.length
+                ? await referenceRemoteFile(
+                    playlistTrack.track.album.images[0].url,
+                    helpers,
+                  )
+                : null,
+          },
         }),
       );
     }),

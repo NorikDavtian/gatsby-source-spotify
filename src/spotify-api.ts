@@ -1,11 +1,13 @@
 import fetch from 'node-fetch';
 
 import { PluginOptions } from './gatsby-node';
+import { PlaylistResponse } from './types/spotify-playlist';
 import { PlaylistsResponse } from './types/spotify-playlists';
 import { RecentResponse } from './types/spotify-recent';
 import { TokenResponse } from './types/spotify-token';
 import { Artist, TopArtistsResponse } from './types/spotify-top-artists';
-import { TopTracksResponse, Track } from './types/spotify-top-tracks';
+import { TopTracksResponse } from './types/spotify-top-tracks';
+import { Track } from './types/spotify-track';
 
 export type Scope =
   | 'playlist-read-private'
@@ -117,6 +119,28 @@ export const getPlaylists = async (accessToken: string, limit: number = 50) => {
   return result.items;
 };
 
+export const getPlaylistTracks = async (
+  accessToken: string,
+  playlistId: string,
+  limit: number = 50,
+) => {
+  const url = new URL(`${SPOTIFY_API_URL}/playlists/${playlistId}/tracks`);
+  url.searchParams.append('limit', String(Math.min(limit, 50)));
+
+  const response = await fetch(String(url), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`${response.statusText}: ${await response.text()}`);
+  }
+
+  const result: PlaylistResponse = await response.json();
+  return result.items;
+};
+
 export const getRecentTracks = async (
   accessToken: string,
   limit: number = 50,
@@ -145,6 +169,7 @@ export const getUserData = async ({
   timeRanges = ['short_term', 'medium_term', 'long_term'],
   fetchPlaylists = true,
   fetchRecent = true,
+  playlistId = '',
 }: PluginOptions) => {
   const { access_token } = await getTokens(
     clientId,
@@ -154,6 +179,9 @@ export const getUserData = async ({
   );
 
   const playlists = fetchPlaylists ? await getPlaylists(access_token) : [];
+  const playlistTracks = playlistId
+    ? await getPlaylistTracks(access_token, playlistId)
+    : [];
   const recentTracks = fetchRecent ? await getRecentTracks(access_token) : [];
 
   const artists = await Promise.all(
@@ -172,6 +200,7 @@ export const getUserData = async ({
 
   return {
     playlists,
+    playlistTracks,
     recentTracks,
     artists: [].concat(...artists) as (Artist & { time_range: TimeRange })[],
     tracks: [].concat(...tracks) as (Track & { time_range: TimeRange })[],

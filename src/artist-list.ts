@@ -1,5 +1,5 @@
 import { Artist as RecentArtist } from './types/spotify-recent';
-import { Artist } from './types/spotify-top-tracks';
+import { Artist } from './types/spotify-track';
 
 export const generateArtistString = (artists: Artist[] | RecentArtist[]) => {
   if (artists.length === 1) {
